@@ -1,0 +1,25 @@
+{
+  "name": "yt-clipper",
+  "version": "1.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "dev": "npx ts-node index.ts",
+    "test": "npx jest",
+    "test:coverage": "npx jest --coverage"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.3",
+    "@types/node": "^18.15.11",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.0.4"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "youtube-dl-exec": "^2.4.7"
+  }
+}

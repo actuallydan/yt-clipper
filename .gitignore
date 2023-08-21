@@ -1,0 +1,12 @@
+.env
+.env.local
+.env.development
+.env.production
+
+dist/
+node_modules/
+
+.DS_Store
+
+/coverage
+/clipped_videos/
