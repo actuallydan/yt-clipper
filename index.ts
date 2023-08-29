@@ -2,18 +2,39 @@ import express, { Request, Response } from "express";
 import { spawn } from "child_process";
 import youtubedl from "youtube-dl-exec";
 import fs from "fs";
+import { performance } from "perf_hooks";
 
 const app = express();
 const port = 3030;
 const videoDirectory = "clipped_videos"; // Specify the directory to save clipped videos
 
-app.get("/clip", async (req: Request, res: Response) => {
-  const youtubeLink = req.query.link as string;
-  const start = req.query.start as string;
-  const end = req.query.end as string;
+app.get("/clip/*", async (req: Request, res: Response) => {
+  console.log("DO STUFF")
 
-  if (!youtubeLink || !start || !end) {
+  console.log(req.params, req.query);
+  // { '0': 'https://www.youtube.com/watch' } { v: '5CdTI1ytAsE', ab_channel: 'TheCosmonautVarietyHour' }
+
+  const videoId = req.query.v;
+
+  const youtubeLink = req.params[0] + "?v=" + req.query.v as string;
+  let start = req.query.start as number;
+  let end = req.query.end as number; // represents the duration in seconds from the start, NOT the absolute duration end
+
+  const t0 = performance.now();
+  
+
+  console.log(youtubeLink);
+
+  if (!youtubeLink) {
     return res.status(400).send("Missing link, start, or end");
+  }
+
+  if(!start){
+    start = 100;
+  }
+
+  if(!end){
+    end = 300;
   }
 
   try {
@@ -25,13 +46,15 @@ app.get("/clip", async (req: Request, res: Response) => {
       getFilename: true,
     })) as unknown as string;
 
-    const clippedVideoFilename = `${
-      Date.now().toString() + "-" + Math.random().toString().replace(".", "")
-    }.mp4`;
+    const clippedVideoFilename = `${videoId}-${start}-${end}.mp4`;
     const clippedVideoPath = `${videoDirectory}/${clippedVideoFilename}`;
 
-    // if (!fs.existsSync(clippedVideoPath)) {
-    await youtubedl(youtubeLink);
+    if (!fs.existsSync(clippedVideoPath)) {
+    await youtubedl(youtubeLink, {
+      format: 'bestvideo[height<=720]+bestaudio/best[height<=720]',
+    });
+
+    console.log(`downloaded video in ${performance.now() - t0} seconds`)
 
     const newFullPath = `${videoDirectory}/${encodeURI(videoTitle)}`;
 
@@ -41,11 +64,11 @@ app.get("/clip", async (req: Request, res: Response) => {
 
     const ffmpegProcess = spawn("ffmpeg", [
       "-ss",
-      start,
+      start.toString(),
       "-i",
       newFullPath,
       "-to",
-      end,
+      (end - start).toString(),
       "-c:v",
       "libx264",
       "-preset",
@@ -61,21 +84,33 @@ app.get("/clip", async (req: Request, res: Response) => {
 
     ffmpegProcess.stderr.on("data", (data) => {
       // for some reason ffmpeg's output is logged as stderr...
-      console.error(`FFmpeg error: ${data}`);
+      // console.error(`FFmpeg error: ${data}`);
     });
 
     ffmpegProcess.on("close", (code) => {
       if (code !== 0) {
         console.error(`FFmpeg process exited with code ${code}`);
       }
+      // https://www.youtube.com/watch?v=LEeJZCOS47I&ab_channel=Dan%27sReactNativeLab
 
-      res.setHeader("Content-Type", "text/html");
+      res.redirect("/" + clippedVideoPath)
+      // res.setHeader("Content-Type", "text/html");
 
-      res.send(`
-        <video src="${clippedVideoPath}" autoplay="true">
-        </video>
-        `);
+      // res.send(`
+      //   <video src="${clippedVideoPath}" autoplay="true">
+      //   </video>
+      //   `);
+
+      
+      console.log(`took ${(performance.now() - t0) / 1000} seconds`)
+      // delete the full-length video after use
+      fs.unlink(newFullPath, () => {
+        console.log('cleaned up file')
+      })
     });
+  } else {
+    res.redirect("/" + clippedVideoPath)
+  }
   } catch (error) {
     console.error(`Error: ${error}`);
     return res.status(500).send("An error occurred");
@@ -87,6 +122,7 @@ app.listen(port, () => {
 });
 
 app.get("/clipped_videos/:path", (req, res) => {
+  console.log("SERVE")
   console.log(req.params);
 
   const file = `clipped_videos/${req.params.path}`;
