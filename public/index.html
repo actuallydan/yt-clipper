@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>YT Clipper</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: sans-serif;
+      }
+
+      .container {
+        /* height: 20rem; */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .slider {
+        position: relative;
+        width: clamp(200px, 100%, 600px);
+      }
+
+      .slider__track,
+      .slider__range,
+      .slider__left-value,
+      .slider__right-value {
+        position: absolute;
+      }
+
+      .slider__track,
+      .slider__range {
+        border-radius: 3px;
+        height: 5px;
+      }
+
+      .slider__track {
+        background-color: #ced4da;
+        width: 100%;
+        z-index: 1;
+      }
+
+      .slider__range {
+        background-color: #9fe5e1;
+        z-index: 2;
+      }
+
+      .slider__left-value,
+      .slider__right-value {
+        color: #333333;
+        font-size: 12px;
+        margin-top: 20px;
+      }
+
+      .slider__left-value {
+        left: 6px;
+      }
+
+      .slider__right-value {
+        right: -4px;
+      }
+
+      /* Removing the default appearance */
+      .thumb,
+      .thumb::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      .thumb {
+        pointer-events: none;
+        position: absolute;
+        height: 0;
+        width: clamp(200px, 100%, 600px);
+        outline: none;
+      }
+
+      .thumb--zindex-3 {
+        z-index: 3;
+      }
+
+      .thumb--zindex-4 {
+        z-index: 4;
+      }
+
+      .thumb--zindex-5 {
+        z-index: 5;
+      }
+
+      /* For Chrome browsers */
+      .thumb::-webkit-slider-thumb {
+        background-color: #f1f5f7;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 0 1px 1px #ced4da;
+        cursor: pointer;
+        height: 18px;
+        width: 18px;
+        margin-top: 4px;
+        pointer-events: all;
+        position: relative;
+      }
+
+      /* For Firefox browsers */
+      .thumb::-moz-range-thumb {
+        background-color: #f1f5f7;
+        border: none;
+        border-radius: 50%;
+        box-shadow: 0 0 1px 1px #ced4da;
+        cursor: pointer;
+        height: 18px;
+        width: 18px;
+        margin-top: 4px;
+        pointer-events: all;
+        position: relative;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <script src="https://unpkg.com/react@16/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="text/babel">
+      const { useEffect, useState, useRef, useCallback } = React;
+
+      function convertSecondsToTime(seconds) {
+        const date = new Date(seconds * 1000);
+        const hh = date.getUTCHours();
+        const mm = date.getUTCMinutes();
+        const ss = date.getSeconds().toString().padStart(2, "0");
+
+        if (hh) {
+          return `${hh}:${mm.toString().padStart(2, "0")}:${ss}`;
+        }
+        return `${mm}:${ss}`;
+      }
+
+      const MultiRangeSlider = ({ min, max, onChange }) => {
+        const [minVal, setMinVal] = useState(min);
+        const [maxVal, setMaxVal] = useState(max);
+        const minValRef = useRef();
+        const maxValRef = useRef();
+        const range = useRef();
+
+        // Convert to percentage
+        const getPercent = useCallback(
+          (value) => Math.round(((value - min) / (max - min)) * 100),
+          [min, max]
+        );
+
+        useEffect(() => {
+          if (Number.isInteger(max)) {
+            setMaxVal(max);
+          }
+        }, [max]);
+
+        // Set width of the range to decrease from the left side
+        useEffect(() => {
+          if (maxValRef.current) {
+            const minPercent = getPercent(minVal);
+            const maxPercent = getPercent(+maxValRef.current.value); // Precede with '+' to convert the value from type string to type number
+
+            if (range.current) {
+              range.current.style.left = `${minPercent}%`;
+              range.current.style.width = `${maxPercent - minPercent}%`;
+            }
+          }
+        }, [minVal, getPercent]);
+
+        // Set width of the range to decrease from the right side
+        useEffect(() => {
+          if (minValRef.current) {
+            const minPercent = getPercent(+minValRef.current.value);
+            const maxPercent = getPercent(maxVal);
+
+            if (range.current) {
+              range.current.style.width = `${maxPercent - minPercent}%`;
+            }
+          }
+        }, [maxVal, getPercent]);
+
+        // Get min and max values when their state changes
+        useEffect(() => {
+          onChange({ min: minVal, max: maxVal });
+        }, [minVal, maxVal]);
+
+        return (
+          <div
+            style={{
+              height: "3rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              padding: "2rem 1rem",
+              margin: "1rem 0",
+              width: "100%",
+            }}
+          >
+            <input
+              type="range"
+              min={min}
+              max={max}
+              value={minVal}
+              ref={minValRef}
+              onChange={(event) => {
+                const value = Math.min(+event.target.value, maxVal - 1);
+                setMinVal(value);
+                event.target.value = value.toString();
+              }}
+              className={`thumb thumb--zindex-3 ${
+                minVal > max - 100 ? "thumb--zindex-5" : ""
+              }`}
+              //   style={{ width: "100%" }}
+            />
+            <input
+              type="range"
+              min={min}
+              max={max}
+              value={maxVal}
+              ref={maxValRef}
+              onChange={(event) => {
+                const value = Math.max(+event.target.value, minVal + 1);
+                setMaxVal(value);
+                event.target.value = value.toString();
+              }}
+              className="thumb thumb--zindex-4"
+              //   style={{ width: "100%" }}
+            />
+
+            <div
+              className="slider"
+              // style={{ width: "100%" }}
+            >
+              <div className="slider__track"></div>
+              <div ref={range} className="slider__range"></div>
+              <div className="slider__left-value">
+                {convertSecondsToTime(minVal)}
+              </div>
+              <div className="slider__right-value">
+                {convertSecondsToTime(maxVal)}
+              </div>
+            </div>
+          </div>
+        );
+      };
+
+      function Clipper() {
+        // link, length, title
+        const [video, setVideo] = useState(null);
+        const [{ start, end }, setRange] = useState({ start: 0, end: 0 });
+        const [videoPlaybackTime, setVideoPlaybackTime] = useState(0);
+
+        const videoRef = useRef();
+
+        useEffect(() => {
+          const id = /[0-9a-zA-Z]{11}/.test(window.location.href)
+            ? window.location.href.match(/[0-9a-zA-Z]{11}/)[0]
+            : null;
+
+          console.log(id);
+
+          if (!id) {
+            return;
+          }
+          fetch("/get-local/" + id)
+            .then((res) => res.json())
+            .then((data) => {
+              if (!data?.link !== null) {
+                console.log("woo");
+                setVideo(data);
+              }
+            })
+            .catch((err) => {
+              console.log(err);
+            });
+        }, []);
+
+        useEffect(() => {
+          if (!video) {
+            return;
+          }
+
+          const v = videoRef.current;
+
+          // Update video playback time when minVal changes
+          v.currentTime = start;
+
+          // Limit video playback to the end value
+          if (end < v.length) {
+            v.onseeked = () => {
+              if (v.currentTime > maxVal) {
+                v.currentTime = maxVal;
+                setVideoPlaybackTime(maxVal);
+              }
+            };
+          }
+
+          // update setVideoPlaybackTime every second if video is playing
+          const timer = setInterval(() => {
+            if (v.currentTime > end) {
+              v.pause();
+              v.currentTime = start;
+              setVideoPlaybackTime(start);
+            }
+            if (!v.paused) {
+              setVideoPlaybackTime(v.currentTime);
+            }
+          }, 1000);
+
+          return () => {
+            video.onseeked = null;
+            clearInterval(timer);
+          };
+        }, [start, end]);
+
+        function toggleVideo() {
+          const v = videoRef.current;
+
+          if (v.paused) {
+            v.play();
+          } else {
+            v.pause();
+          }
+        }
+
+        console.log({ start, end, video });
+
+        return (
+          <div
+            style={{
+              width: "100%",
+              maxWidth: "600px",
+              margin: "auto",
+              borderRadius: "1rem",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              border: "1px solid #ccc",
+              marginTop: "2rem",
+            }}
+          >
+            {video ? (
+              <video
+                ref={videoRef}
+                poster={video.thumbnail}
+                src={video.link}
+                style={{
+                  width: "100%",
+                }}
+              />
+            ) : (
+              <div
+                style={{
+                  width: "100%",
+                  height: "20rem",
+                  borderRadius: "1rem",
+                  backgroundColor: "#ccc",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                }}
+              >
+                Loading...
+              </div>
+            )}
+            {video ? <button onClick={toggleVideo}>Play</button> : null}
+            {convertSecondsToTime(videoPlaybackTime)}
+            <MultiRangeSlider
+              min={0}
+              max={video ? video.length : 100}
+              onChange={(range) => {
+                setRange({ start: range.min, end: range.max });
+              }}
+            />
+          </div>
+        );
+      }
+
+      function App() {
+        return (
+          <div>
+            <Clipper />
+          </div>
+        );
+      }
+
+      ReactDOM.render(<App />, document.getElementById("root"));
+    </script>
+  </body>
+</html>
